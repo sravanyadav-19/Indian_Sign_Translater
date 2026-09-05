@@ -22,3 +22,5 @@ backend/public/signs/*.avi
 # OS / logs
 .DS_Store
 *.log
+
+GIT_STREAK_GUIDE.md
