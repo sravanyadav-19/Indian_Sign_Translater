@@ -1,0 +1,13 @@
+{
+  "name": "isl-translator",
+  "version": "1.0.0",
+  "description": "Indian Sign Language translator using real-time video and a trained CNN model.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
