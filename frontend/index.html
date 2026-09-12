@@ -184,7 +184,8 @@
     <canvas id="canvas" style="display: none;"></canvas>
 
     <script>
-        // --- DOM Elements ---
+        // The page keeps UI references in one place so the event handlers below
+        // describe product behavior rather than repeatedly querying the DOM.
         const themeToggle = document.getElementById('theme-toggle');
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
@@ -195,115 +196,157 @@
         const playbackVideo = document.getElementById('playback-video');
         const videoPlaceholder = document.getElementById('video-placeholder');
         const detectionLog = document.getElementById('detection-log');
-        let lastDetectedWord = '';
-        let detectedWordsSet = new Set(); // To avoid duplicate log entries
 
-        // --- Theme Manager ---
-        themeToggle.addEventListener('change', function() {
-            document.body.classList.toggle('dark-mode', this.checked);
-            localStorage.setItem('theme', this.checked ? 'dark-mode' : 'light');
-        });
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.body.classList.add(savedTheme);
-            themeToggle.checked = savedTheme === 'dark-mode';
+        // These values are deliberately centralized: one request at a time keeps
+        // slow model inference from creating a backlog of stale webcam frames.
+        const PREDICTION_INTERVAL_MS = 700;
+        const JPEG_QUALITY = 0.8;
+        let predictionTimer = null;
+        let predictionInFlight = false;
+        let lastDetectedWord = '';
+        const detectedWords = new Set();
+
+        function normalizeSignName(word) {
+            return word.trim().toLowerCase().replace(/\s+/g, '');
         }
 
-        // --- Core Functions ---
         function playSignVideo(word) {
-            const videoSrc = `signs/${word.toLowerCase().replace(/\s/g, '')}.mp4`;
-            playbackVideo.src = videoSrc;
-            videoPlaceholder.style.display = 'none';
+            const normalizedWord = normalizeSignName(word);
+            if (!normalizedWord) return;
+
+            // Sign assets use a predictable name so the same playback function
+            // serves text search, detection history, and future practice mode.
+            playbackVideo.src = `signs/${normalizedWord}.mp4`;
             playbackVideo.style.display = 'block';
+            videoPlaceholder.style.display = 'none';
             playbackVideo.load();
-            playbackVideo.play().catch(err => console.error("Autoplay prevented:", err));
+            playbackVideo.play().catch(() => {
+                // Browsers may block autoplay; controls remain available.
+            });
         }
 
         playbackVideo.addEventListener('error', () => {
+            playbackVideo.removeAttribute('src');
             playbackVideo.style.display = 'none';
             videoPlaceholder.style.display = 'block';
-            videoPlaceholder.textContent = 'Video not found.';
+            videoPlaceholder.textContent = 'No sign video is available for this word yet.';
         });
 
         function addDetectionToLog(word) {
-            if (detectedWordsSet.has(word)) return; // Don't add duplicates
-            detectedWordsSet.add(word);
+            const normalizedWord = normalizeSignName(word);
+            if (!normalizedWord || detectedWords.has(normalizedWord)) return;
+            detectedWords.add(normalizedWord);
 
             const logEntry = document.createElement('li');
             logEntry.className = 'log-entry';
-            
-            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timestamp = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+            });
 
-            logEntry.innerHTML = `
-                <div>
-                    <div class="log-text">${word}</div>
-                    <div class="log-time">${timestamp}</div>
-                </div>
-                <button class="play-log-btn" title="Play this sign">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/></svg>
-                </button>
-            `;
-            
-            logEntry.querySelector('.play-log-btn').addEventListener('click', () => playSignVideo(word));
-            detectionLog.prepend(logEntry); // Add to top of the list
+            // textContent avoids injecting model output as HTML into the page.
+            const label = document.createElement('span');
+            label.className = 'log-text';
+            label.textContent = word;
+            const time = document.createElement('span');
+            time.className = 'log-time';
+            time.textContent = timestamp;
+            const details = document.createElement('div');
+            details.append(label, time);
+
+            const playButton = document.createElement('button');
+            playButton.className = 'play-log-btn';
+            playButton.type = 'button';
+            playButton.title = `Play the ${word} sign`;
+            playButton.setAttribute('aria-label', `Play the ${word} sign`);
+            playButton.textContent = '▶';
+            playButton.addEventListener('click', () => playSignVideo(word));
+
+            logEntry.append(details, playButton);
+            detectionLog.prepend(logEntry);
         }
 
-        // --- Text-to-Sign Translator ---
-        translateForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const word = textInput.value.trim();
-            if (word) {
-                playSignVideo(word);
+        function showPrediction(word) {
+            lastDetectedWord = word;
+            floatingPrediction.textContent = word;
+            floatingPrediction.classList.add('visible');
+            addDetectionToLog(word);
+        }
+
+        function clearPrediction() {
+            lastDetectedWord = '';
+            floatingPrediction.textContent = '';
+            floatingPrediction.classList.remove('visible');
+        }
+
+        async function requestPrediction() {
+            // Avoid capturing while the previous frame is still being classified.
+            if (predictionInFlight || video.paused || video.ended || !canvas.width) return;
+            predictionInFlight = true;
+
+            try {
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const image = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image }),
+                });
+
+                if (!response.ok) throw new Error(`Prediction request failed (${response.status})`);
+                const result = await response.json();
+
+                if (result.prediction && result.prediction !== lastDetectedWord) {
+                    showPrediction(result.prediction);
+                } else if (!result.prediction) {
+                    clearPrediction();
+                }
+            } catch (error) {
+                console.error('Prediction error:', error);
+            } finally {
+                predictionInFlight = false;
             }
+        }
+
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('dark-mode', themeToggle.checked);
+            localStorage.setItem('theme', themeToggle.checked ? 'dark-mode' : 'light');
+        });
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.body.classList.toggle('dark-mode', savedTheme === 'dark-mode');
+            themeToggle.checked = savedTheme === 'dark-mode';
+        }
+
+        translateForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            playSignVideo(textInput.value);
         });
 
-        // --- Live ISL Detection ---
         video.addEventListener('loadedmetadata', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
         });
 
         navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
+            .then((stream) => {
                 video.srcObject = stream;
                 webcamWrapper.classList.add('scanning');
+                predictionTimer = window.setInterval(requestPrediction, PREDICTION_INTERVAL_MS);
             })
-            .catch(err => {
-                floatingPrediction.textContent = "Webcam Error!";
+            .catch(() => {
+                floatingPrediction.textContent = 'Camera access is required for live translation.';
                 floatingPrediction.classList.add('visible');
             });
 
-        setInterval(async () => {
-            if (video.paused || video.ended) return;
-
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
-            try {
-                const response = await fetch('/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: imageData }),
-                });
-  
-                if (!response.ok) throw new Error('Server error');
-
-                const result = await response.json();
-                
-                if (result.prediction && result.prediction !== lastDetectedWord) {
-                    lastDetectedWord = result.prediction;
-                    floatingPrediction.textContent = result.prediction;
-                    floatingPrediction.classList.add('visible');
-                    addDetectionToLog(result.prediction);
-                } else if (!result.prediction) {
-                    lastDetectedWord = '';
-                    floatingPrediction.classList.remove('visible');
-                }
-            } catch (error) {
-                console.error("Prediction error:", error);
-            }
-        }, 500); // Slightly increased interval for stability
+        // Stop the camera when leaving the page; this prevents the webcam LED
+        // and device resources from remaining active after navigation.
+        window.addEventListener('pagehide', () => {
+            if (predictionTimer) window.clearInterval(predictionTimer);
+            const stream = video.srcObject;
+            if (stream) stream.getTracks().forEach((track) => track.stop());
+        });
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3a042a03d97801c',t:'MTc4OTIzMDI0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
