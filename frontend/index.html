@@ -109,6 +109,7 @@
             transition: opacity 0.5s;
         }
         #floating-prediction.visible { opacity: 1; animation: pop-up 0.5s ease-out; }
+        #floating-prediction.uncertain { background: rgba(180, 120, 20, 0.78); }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--primary-glow); } 70% { box-shadow: 0 0 15px 10px rgba(0,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } }
         @keyframes pop-up { from { transform: translateX(-50%) translateY(20px) scale(0.8); opacity: 0; } to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; } }
 
@@ -155,7 +156,7 @@
         <div class="panel live-panel">
             <div class="webcam-wrapper" id="webcam-wrapper">
                 <video id="webcam" autoplay playsinline></video>
-                <div id="floating-prediction"></div>
+                <div id="floating-prediction" role="status" aria-live="polite"></div>
             </div>
         </div>
 
@@ -266,9 +267,11 @@
             detectionLog.prepend(logEntry);
         }
 
-        function showPrediction(word) {
+        function showPrediction(word, confidence) {
             lastDetectedWord = word;
-            floatingPrediction.textContent = word;
+            const percentage = Math.round((confidence || 0) * 100);
+            floatingPrediction.textContent = `${word} · ${percentage}% confidence`;
+            floatingPrediction.classList.toggle('uncertain', percentage < 85);
             floatingPrediction.classList.add('visible');
             addDetectionToLog(word);
         }
@@ -276,7 +279,7 @@
         function clearPrediction() {
             lastDetectedWord = '';
             floatingPrediction.textContent = '';
-            floatingPrediction.classList.remove('visible');
+            floatingPrediction.classList.remove('visible', 'uncertain');
         }
 
         async function requestPrediction() {
@@ -298,7 +301,7 @@
                 const result = await response.json();
 
                 if (result.prediction && result.prediction !== lastDetectedWord) {
-                    showPrediction(result.prediction);
+                    showPrediction(result.prediction, result.confidence);
                 } else if (!result.prediction) {
                     clearPrediction();
                 }
@@ -348,5 +351,5 @@
             if (stream) stream.getTracks().forEach((track) => track.stop());
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3a042a03d97801c',t:'MTc4OTIzMDI0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3a042a03d97801c',t:'MTc4OTIzMDI0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3b400759b85f3fd',t:'MTc4OTQzNzI0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
