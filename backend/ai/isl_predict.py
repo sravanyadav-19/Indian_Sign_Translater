@@ -41,16 +41,19 @@ def predict_sign(image_data):
         predicted_index = np.argmax(prediction)
         confidence = np.max(prediction)
 
-        if confidence > 0.85: # High confidence threshold for better accuracy
-            return index_to_label.get(predicted_index, "")
-        else:
-            return ""
+        label = index_to_label.get(predicted_index, "")
+        # Return confidence even when the label is withheld. The UI can then
+        # explain uncertainty instead of treating every empty result as a crash.
+        return {
+            "prediction": label if confidence > 0.85 else "",
+            "confidence": round(float(confidence), 3),
+        }
     except Exception as e:
-        # Don't print errors for every bad frame, just return empty
-        return ""
+        # Keep the process protocol stable even when one frame is malformed.
+        return {"prediction": "", "confidence": 0.0}
 
 if __name__ == "__main__":
     input_data = sys.stdin.read()
     if input_data:
         prediction_result = predict_sign(input_data)
-        print(prediction_result, end='')
+        print(json.dumps(prediction_result), end='')

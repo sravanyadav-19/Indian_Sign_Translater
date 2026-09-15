@@ -68,7 +68,16 @@ app.post('/predict', (req, res) => {
             console.error(`Python script error: ${errorData}`);
             return res.status(500).json({ error: 'Prediction failed' });
         }
-        res.json({ prediction: predictionData.trim() });
+        try {
+            const result = JSON.parse(predictionData.trim());
+            res.json({
+                prediction: result.prediction || '',
+                confidence: Number(result.confidence) || 0,
+            });
+        } catch (parseError) {
+            console.error(`Invalid prediction response: ${parseError.message}`);
+            res.status(500).json({ error: 'Invalid prediction response' });
+        }
     });
 
     pythonProcess.stdin.write(image);
