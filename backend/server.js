@@ -7,6 +7,9 @@ const app = express();
 const port = process.env.PORT || 7240;
 // Python interpreter name differs across systems (Windows: python, Linux/Mac: python3).
 const PYTHON = process.env.PYTHON_BIN || 'python3';
+// A model process must finish within a bounded time so one bad frame cannot
+// keep a browser request open forever. Override for slower local machines.
+const PREDICTION_TIMEOUT_MS = Number(process.env.PREDICTION_TIMEOUT_MS || 10000);
 
 // Allow the page (whether served by us or opened separately) to call the API.
 app.use(cors());
@@ -29,9 +32,17 @@ app.post('/predict', (req, res) => {
 
     const scriptPath = path.join(__dirname, 'ai', 'isl_predict.py');
     const pythonProcess = spawn(PYTHON, [scriptPath], { cwd: __dirname });
-
+    let settled = false;
     let predictionData = '';
     let errorData = '';
+
+    const timeout = setTimeout(() => {
+        pythonProcess.kill();
+        if (!settled) {
+            settled = true;
+            res.status(504).json({ error: 'Prediction timed out' });
+        }
+    }, PREDICTION_TIMEOUT_MS);
 
     pythonProcess.stdout.on('data', (data) => {
         predictionData += data.toString();
@@ -41,10 +52,21 @@ app.post('/predict', (req, res) => {
         errorData += data.toString();
     });
 
+    pythonProcess.on('error', (error) => {
+        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
+        console.error(`Unable to start prediction process: ${error.message}`);
+        res.status(500).json({ error: 'Prediction service unavailable' });
+    });
+
     pythonProcess.on('close', (code) => {
+        clearTimeout(timeout);
+        if (settled) return;
+        settled = true;
         if (code !== 0 || errorData) {
             console.error(`Python script error: ${errorData}`);
-            return res.status(500).json({ error: 'Prediction failed', details: errorData });
+            return res.status(500).json({ error: 'Prediction failed' });
         }
         res.json({ prediction: predictionData.trim() });
     });
