@@ -27,12 +27,20 @@ except Exception as e:
 # --- PREDICTION FUNCTION ---
 def predict_sign(image_data):
     try:
-        encoded_data = image_data.split(',')[1]
-        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        # The browser sends a data URL. Validate the protocol before decoding so
+        # malformed requests produce a predictable empty result instead of an
+        # index error or an ambiguous model failure.
+        if not isinstance(image_data, str) or not image_data.startswith('data:image/'):
+            return {"prediction": "", "confidence": 0.0}
+        header, encoded_data = image_data.split(',', 1)
+        if ';base64' not in header or not encoded_data:
+            return {"prediction": "", "confidence": 0.0}
+
+        nparr = np.frombuffer(base64.b64decode(encoded_data, validate=True), np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
 
         if img is None:
-            return ""
+            return {"prediction": "", "confidence": 0.0}
 
         img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
         img_array = np.array(img_resized).reshape(1, IMG_SIZE, IMG_SIZE, 1) / 255.0
