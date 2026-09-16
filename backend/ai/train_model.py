@@ -41,6 +41,26 @@ for filename in os.listdir(full_data_path):
 print(f"Loaded {len(images)} images for {len(label_map)} labels.")
 print(f"Labels found: {list(label_map.keys())}")
 
+# Fail early with a useful instruction instead of letting NumPy or
+# train_test_split produce a cryptic error later in the training process.
+if not images:
+    raise SystemExit(
+        "No training images found. Add files named <sign>_<number>.jpg "
+        "inside backend/ai/dataset/ and run this script again."
+    )
+if len(label_map) < 2:
+    raise SystemExit(
+        "At least two sign labels are required. Add another sign class "
+        "before training the classifier."
+    )
+class_counts = {label: labels.count(index) for label, index in label_map.items()}
+small_classes = [label for label, count in class_counts.items() if count < 2]
+if small_classes:
+    raise SystemExit(
+        "Each sign needs at least two images for a train/test split. "
+        f"Add more images for: {', '.join(small_classes)}"
+    )
+
 with open(LABEL_MAP_SAVE_PATH, 'w') as f:
     json.dump(label_map, f)
 print(f"Label map saved to {LABEL_MAP_SAVE_PATH}")
