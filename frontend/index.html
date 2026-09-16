@@ -202,10 +202,29 @@
         // slow model inference from creating a backlog of stale webcam frames.
         const PREDICTION_INTERVAL_MS = 700;
         const JPEG_QUALITY = 0.8;
+        const DETECTION_HISTORY_KEY = 'isl-detection-history';
+        const MAX_DETECTION_HISTORY = 30;
         let predictionTimer = null;
         let predictionInFlight = false;
         let lastDetectedWord = '';
         const detectedWords = new Set();
+
+        function saveDetectionHistory() {
+            localStorage.setItem(
+                DETECTION_HISTORY_KEY,
+                JSON.stringify([...detectedWords].slice(-MAX_DETECTION_HISTORY)),
+            );
+        }
+
+        function restoreDetectionHistory() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(DETECTION_HISTORY_KEY) || '[]');
+                if (!Array.isArray(saved)) return;
+                saved.forEach((word) => addDetectionToLog(word, false));
+            } catch {
+                localStorage.removeItem(DETECTION_HISTORY_KEY);
+            }
+        }
 
         function normalizeSignName(word) {
             return word.trim().toLowerCase().replace(/\s+/g, '');
@@ -233,7 +252,7 @@
             videoPlaceholder.textContent = 'No sign video is available for this word yet.';
         });
 
-        function addDetectionToLog(word) {
+        function addDetectionToLog(word, persist = true) {
             const normalizedWord = normalizeSignName(word);
             if (!normalizedWord || detectedWords.has(normalizedWord)) return;
             detectedWords.add(normalizedWord);
@@ -265,6 +284,7 @@
 
             logEntry.append(details, playButton);
             detectionLog.prepend(logEntry);
+            if (persist) saveDetectionHistory();
         }
 
         function showPrediction(word, confidence) {
@@ -327,6 +347,8 @@
             playSignVideo(textInput.value);
         });
 
+        restoreDetectionHistory();
+
         video.addEventListener('loadedmetadata', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
@@ -351,5 +373,5 @@
             if (stream) stream.getTracks().forEach((track) => track.stop());
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3a042a03d97801c',t:'MTc4OTIzMDI0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3b400759b85f3fd',t:'MTc4OTQzNzI0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3a042a03d97801c',t:'MTc4OTIzMDI0Mw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3b400759b85f3fd',t:'MTc4OTQzNzI0OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3bca2b7b9549870',t:'MTc4OTUyNzc4MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
