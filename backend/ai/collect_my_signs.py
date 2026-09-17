@@ -1,16 +1,35 @@
+import argparse
 import cv2
 import os
 import time
 
-# --- 1. CONFIGURATION ---
-# IMPORTANT: Change this to the sign you are currently capturing!
-SIGN_WORD = "hello" 
-# Number of images to capture for this sign
-NUM_IMAGES = 200
-# Directory to save images
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'dataset') 
 
-# --- 2. SCRIPT ---
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Capture labeled webcam images for one ISL sign."
+    )
+    parser.add_argument("sign", help="Label for the sign, for example: hello")
+    parser.add_argument("--images", type=int, default=200, help="Frames to capture (default: 200)")
+    parser.add_argument("--delay", type=float, default=0.1, help="Seconds between frames (default: 0.1)")
+    return parser.parse_args()
+
+
+# Command-line options make repeated collection sessions reproducible without
+# editing this source file for every new sign.
+args = parse_args()
+SIGN_WORD = args.sign.strip().lower().replace(" ", "_")
+NUM_IMAGES = args.images
+CAPTURE_DELAY = args.delay
+DATA_PATH = os.path.join(os.path.dirname(__file__), 'dataset')
+
+if not SIGN_WORD:
+    raise SystemExit("The sign label cannot be empty.")
+if NUM_IMAGES < 2:
+    raise SystemExit("--images must be at least 2.")
+if CAPTURE_DELAY < 0:
+    raise SystemExit("--delay cannot be negative.")
+
+# --- SCRIPT ---
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
 
@@ -55,7 +74,7 @@ for img_num in range(NUM_IMAGES):
     print(f"Saved {image_name}")
 
     # Wait for 100ms between captures. Press 'q' to quit early.
-    if cv2.waitKey(100) & 0xFF == ord('q'):
+    if cv2.waitKey(max(1, round(CAPTURE_DELAY * 1000))) & 0xFF == ord('q'):
         break
 
 print(f"\n--- Finished capturing for '{SIGN_WORD}' ---")
