@@ -126,6 +126,7 @@
 
         #detection-log-wrapper { flex-grow: 1; overflow-y: auto; }
         #detection-log { list-style: none; }
+        .detection-log-header { display: flex; align-items: center; justify-content: space-between; }
         .log-entry {
             display: flex;
             align-items: center;
@@ -176,7 +177,10 @@
             </div>
 
             <div id="detection-log-wrapper">
-                <h2 class="card-header">Detection Log</h2>
+                <div class="detection-log-header">
+                    <h2 class="card-header">Detection Log</h2>
+                    <button id="clear-history-btn" class="play-log-btn" type="button">Clear</button>
+                </div>
                 <ul id="detection-log"></ul>
             </div>
         </div>
@@ -287,6 +291,13 @@
             if (persist) saveDetectionHistory();
         }
 
+        function clearDetectionHistory() {
+            if (!window.confirm('Clear all saved detection history?')) return;
+            detectedWords.clear();
+            localStorage.removeItem(DETECTION_HISTORY_KEY);
+            detectionLog.replaceChildren();
+        }
+
         function showPrediction(word, confidence) {
             lastDetectedWord = word;
             const percentage = Math.round((confidence || 0) * 100);
@@ -347,6 +358,7 @@
             playSignVideo(textInput.value);
         });
 
+        document.getElementById('clear-history-btn').addEventListener('click', clearDetectionHistory);
         restoreDetectionHistory();
 
         video.addEventListener('loadedmetadata', () => {
