@@ -22,7 +22,18 @@ app.use(express.static(PUBLIC_DIR));    // /signs/*.mp4
 app.use(express.static(FRONTEND_DIR));  // /index.html
 
 app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/health', (req, res) => {
+    const modelPath = path.join(__dirname, 'ai', 'isl_model.h5');
+    const labelMapPath = path.join(__dirname, 'ai', 'label_map.json');
+    const modelReady = require('fs').existsSync(modelPath);
+    const labelsReady = require('fs').existsSync(labelMapPath);
+
+    res.status(modelReady && labelsReady ? 200 : 503).json({
+        status: modelReady && labelsReady ? 'ok' : 'degraded',
+        model_ready: modelReady,
+        labels_ready: labelsReady,
+    });
+});
 
 app.post('/predict', (req, res) => {
     const { image } = req.body;
