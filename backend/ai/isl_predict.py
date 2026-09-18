@@ -13,6 +13,14 @@ import tensorflow as tf
 IMG_SIZE = 64
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'isl_model.h5')
 LABEL_MAP_PATH = os.path.join(os.path.dirname(__file__), 'label_map.json')
+DEFAULT_CONFIDENCE_THRESHOLD = 0.85
+try:
+    CONFIDENCE_THRESHOLD = float(
+        os.getenv('ISL_CONFIDENCE_THRESHOLD', DEFAULT_CONFIDENCE_THRESHOLD)
+    )
+except ValueError:
+    CONFIDENCE_THRESHOLD = DEFAULT_CONFIDENCE_THRESHOLD
+CONFIDENCE_THRESHOLD = min(1.0, max(0.0, CONFIDENCE_THRESHOLD))
 
 # --- LOAD MODEL AND LABELS ---
 try:
@@ -53,7 +61,7 @@ def predict_sign(image_data):
         # Return confidence even when the label is withheld. The UI can then
         # explain uncertainty instead of treating every empty result as a crash.
         return {
-            "prediction": label if confidence > 0.85 else "",
+            "prediction": label if confidence >= CONFIDENCE_THRESHOLD else "",
             "confidence": round(float(confidence), 3),
         }
     except Exception as e:
