@@ -10,6 +10,7 @@ const PYTHON = process.env.PYTHON_BIN || 'python3';
 // A model process must finish within a bounded time so one bad frame cannot
 // keep a browser request open forever. Override for slower local machines.
 const PREDICTION_TIMEOUT_MS = Number(process.env.PREDICTION_TIMEOUT_MS || 10000);
+const MAX_IMAGE_DATA_LENGTH = 5 * 1024 * 1024; // Protect the inference process from oversized frames.
 
 // Allow the page (whether served by us or opened separately) to call the API.
 app.use(cors());
@@ -39,6 +40,12 @@ app.post('/predict', (req, res) => {
     const { image } = req.body;
     if (!image) {
         return res.status(400).json({ error: 'No image data provided' });
+    }
+    if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Image must be a valid data URL' });
+    }
+    if (image.length > MAX_IMAGE_DATA_LENGTH) {
+        return res.status(413).json({ error: 'Image data is too large' });
     }
 
     const scriptPath = path.join(__dirname, 'ai', 'isl_predict.py');
