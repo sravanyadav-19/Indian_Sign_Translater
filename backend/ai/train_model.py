@@ -8,9 +8,12 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
 
 # --- CONFIGURATION ---
-DATA_PATH = os.path.join('dataset')
-MODEL_SAVE_PATH = os.path.join('isl_model.h5')
-LABEL_MAP_SAVE_PATH = os.path.join('label_map.json')
+# Keep generated artifacts beside the predictor regardless of where the script
+# is launched from (repository root, backend/, or backend/ai/).
+AI_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(AI_DIR, 'dataset')
+MODEL_SAVE_PATH = os.path.join(AI_DIR, 'isl_model.h5')
+LABEL_MAP_SAVE_PATH = os.path.join(AI_DIR, 'label_map.json')
 IMG_SIZE = 64
 
 # --- 1. LOAD DATA ---
@@ -21,7 +24,7 @@ current_label = 0
 
 print("Loading images from dataset...")
 # Make sure we are in the 'ai' directory's context
-full_data_path = os.path.join(os.path.dirname(__file__), DATA_PATH)
+full_data_path = DATA_PATH
 
 for filename in os.listdir(full_data_path):
     if filename.endswith('.jpg'):
