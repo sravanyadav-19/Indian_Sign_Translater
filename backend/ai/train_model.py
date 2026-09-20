@@ -111,6 +111,10 @@ history = model.fit(
     callbacks=callbacks,
 )
 
-# --- 4. SAVE THE TRAINED MODEL ---
+# --- 4. EVALUATE AND SAVE THE TRAINED MODEL ---
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+print(f"\nValidation loss: {test_loss:.4f}")
+print(f"Validation accuracy: {test_accuracy:.2%}")
+
 model.save(MODEL_SAVE_PATH)
-print(f"\nModel saved to {MODEL_SAVE_PATH}")
+print(f"Model saved to {MODEL_SAVE_PATH}")
