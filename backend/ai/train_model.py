@@ -1,3 +1,4 @@
+import argparse
 import os
 import cv2
 import json
@@ -7,6 +8,17 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train the ISL CNN classifier.")
+    parser.add_argument("--epochs", type=int, default=20, help="Training epochs (default: 20)")
+    parser.add_argument("--batch-size", type=int, default=64, help="Batch size (default: 64)")
+    return parser.parse_args()
+
+
+args = parse_args()
+if args.epochs < 1 or args.batch_size < 1:
+    raise SystemExit("--epochs and --batch-size must be positive integers.")
 
 # --- CONFIGURATION ---
 # Keep generated artifacts beside the predictor regardless of where the script
@@ -105,8 +117,8 @@ callbacks = [
 history = model.fit(
     X_train,
     y_train,
-    epochs=20,
-    batch_size=64,
+    epochs=args.epochs,
+    batch_size=args.batch_size,
     validation_data=(X_test, y_test),
     callbacks=callbacks,
 )
