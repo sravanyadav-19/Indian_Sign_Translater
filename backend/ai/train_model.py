@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # --- CONFIGURATION ---
 # Keep generated artifacts beside the predictor regardless of where the script
@@ -97,7 +98,18 @@ model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accur
 model.summary()
 
 print("\nTraining model...")
-history = model.fit(X_train, y_train, epochs=20, batch_size=64, validation_data=(X_test, y_test))
+callbacks = [
+    EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
+    ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-6),
+]
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=20,
+    batch_size=64,
+    validation_data=(X_test, y_test),
+    callbacks=callbacks,
+)
 
 # --- 4. SAVE THE TRAINED MODEL ---
 model.save(MODEL_SAVE_PATH)
