@@ -1,0 +1,23 @@
+# Git and local development metadata
+.git
+.gitignore
+.env
+.env.*
+
+# Node and Python caches
+node_modules
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+
+# Local datasets and captured training material
+dataset
+**/dataset
+
+# Training logs and OS artifacts. Runtime model/sign assets remain available.
+*.log
+.DS_Store
+Thumbs.db
+
+# Keep isl_model.h5, label_map.json, and sign videos available to the runtime image.
