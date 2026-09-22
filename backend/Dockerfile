@@ -9,15 +9,19 @@ RUN apt-get update && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
-# Copy and install Python dependencies
+# Install Python dependencies without retaining pip's download cache.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy remaining backend code
+# Install Node dependencies from the lockfile for reproducible deploys.
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy remaining backend code, including the prediction scripts and frontend.
 COPY . .
 
-# Install Node dependencies for server.js
-RUN npm install
+ENV NODE_ENV=production
+ENV PYTHON_BIN=python
 
 EXPOSE 7240
 
