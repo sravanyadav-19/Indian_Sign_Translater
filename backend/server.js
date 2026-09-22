@@ -12,8 +12,24 @@ const PYTHON = process.env.PYTHON_BIN || 'python3';
 const PREDICTION_TIMEOUT_MS = Number(process.env.PREDICTION_TIMEOUT_MS || 10000);
 const MAX_IMAGE_DATA_LENGTH = 5 * 1024 * 1024; // Protect the inference process from oversized frames.
 
-// Allow the page (whether served by us or opened separately) to call the API.
-app.use(cors());
+// Keep local development convenient while requiring an explicit allowlist in production.
+const configuredOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins);
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.add(`http://localhost:${port}`);
+    allowedOrigins.add(`http://127.0.0.1:${port}`);
+}
+
+app.use(cors({
+    origin(origin, callback) {
+        // Non-browser tools such as curl do not send an Origin header.
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('Origin is not allowed by the ISL API'));
+    },
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Serve the learning-hub UI and the sign videos.
